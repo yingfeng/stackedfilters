@@ -1,0 +1,6 @@
+#!/bin/bash
+
+./ZipfGraphsDataGeneratorDiskVersion --bits=10 --num_positives=100000 --num_positives_max=100000000 --num_positives_ratio=10 --neg_universe_size=100000000 --num_layers=3 --path="Data/build_and_query_timing_STACKED.csv"
+
+./ZipfGraphsDataGeneratorDiskVersion --bits=10 --num_positives=100000 --num_positives_max=100000000 --num_positives_ratio=10 --neg_universe_size=100000000 --num_layers=1 --path="Data/build_and_query_timing_TRADITIONAL.csv"
+

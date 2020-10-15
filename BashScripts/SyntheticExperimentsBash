@@ -1,0 +1,31 @@
+#!/bin/bash
+
+# Overall Performance Graphs 
+
+#./ZipfGraphsDataGeneratorDiskVersion --bits=8 --bits_max=14 --bits_step=2 --use_hdd=0 --num_layers=1 --path="Data/synthetic_disk_performance_TRADITIONAL_SSD.csv"
+
+#./ZipfGraphsDataGeneratorDiskVersion --bits=8 --bits_max=14 --bits_step=2 --use_hdd=0 --num_layers=0 --path="Data/synthetic_disk_performance_STACKED_SSD.csv"
+
+#./ZipfGraphsDataGeneratorDiskVersion --bits=8 --bits_max=14 --bits_step=2 --use_hdd=1 --num_layers=1 --path="Data/synthetic_disk_performance_TRADITIONAL_HDD.csv"
+
+#./ZipfGraphsDataGeneratorDiskVersion --bits=8 --bits_max=14 --bits_step=2 --use_hdd=1 --num_layers=0 --path="Data/synthetic_disk_performance_STACKED_HDD.csv"
+
+
+# Computation Graphs
+
+#./ZipfGraphsDataGenerator --bits=10 --bits_max=14 --bits_step=4 --num_layers=1 --path="Data/synthetic_comp_performance_TRADITIONAL.csv"
+
+#./ZipfGraphsDataGenerator --bits=10 --bits_max=14 --bits_step=4 --num_layers=0 --path="Data/synthetic_comp_performance_STACKED.csv"
+
+
+# FPR Graphs
+
+./ZipfGraphsDataGenerator --bits=4 --bits_max=8 --bits_step=.5 --num_layers=0 --zipf=.5 --path="Data/synthetic_fpr_vs_bits_1.csv"
+
+./ZipfGraphsDataGenerator --bits=4 --bits_max=8 --bits_step=.5 --num_layers=0 --zipf=.75 --path="Data/synthetic_fpr_vs_bits_2.csv"
+
+./ZipfGraphsDataGenerator --bits=4 --bits_max=8 --bits_step=.5 --num_layers=0 --zipf=1.02 --path="Data/synthetic_fpr_vs_bits_3.csv"
+
+./ZipfGraphsDataGenerator --bits=4 --bits_max=8 --bits_step=.5 --num_layers=0 --zipf=1.25 --path="Data/synthetic_fpr_vs_bits_4.csv"
+
+./ZipfGraphsDataGenerator --bits=4 --bits_max=8 --bits_step=.5 --num_layers=1 --zipf=.5 --path="Data/synthetic_fpr_vs_bits_5.csv"

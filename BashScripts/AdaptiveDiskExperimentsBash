@@ -1,0 +1,13 @@
+#!/bin/bash
+
+#./ZipfDiskVersionAdaptive --bits=8 --total_queries=10000000 --num_reps=50 --path="Data/adaptive_experiments_ssd_8_10mil_v1.csv"
+
+#./ZipfDiskVersionAdaptive --bits=10 --total_queries=10000000 --num_reps=50 --path="Data/adaptive_experiments_ssd_10_10mil_v1.csv"
+
+#./ZipfDiskVersionAdaptive --bits=12 --total_queries=10000000 --num_reps=50 --path="Data/adaptive_experiments_ssd_12_10mil_v1.csv"
+
+#./ZipfDiskVersionAdaptive --bits=8 --total_queries=10000000 --use_hdd=1 --path="Data/adaptive_experiments_hdd_8_10mil_v1.csv"
+
+./ZipfDiskVersionAdaptive --bits=10 --total_queries=10000000 --use_hdd=1 --path="Data/adaptive_experiments_hdd_10_10mil_v1.csv"
+
+#./ZipfDiskVersionAdaptive --bits=12 --total_queries=10000000 --use_hdd=1 --path="Data/adaptive_experiments_hdd_12_10mil_v1.csv"

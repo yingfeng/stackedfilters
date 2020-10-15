@@ -1,0 +1,10 @@
+#!/bin/bash
+
+#./URLBlacklistingDiskVersion --bits=8 --bits_max=14 --bits_step=2 --use_hdd=0 --num_layers=1 --path="Data/disk_performance_TRADITIONAL_SSD.csv"
+
+#./URLBlacklistingDiskVersion --bits=8 --bits_max=14 --bits_step=2 --use_hdd=0 --num_layers=0 --path="Data/disk_performance_STACKED_SSD.csv"
+
+./URLBlacklistingDiskVersion --bits=8 --bits_max=14 --bits_step=2 --use_hdd=1 --num_layers=1 --path="Data/disk_performance_TRADITIONAL_HDD_v2.csv"
+
+./URLBlacklistingDiskVersion --bits=8 --bits_max=14 --bits_step=2 --use_hdd=1 --num_layers=0 --path="Data/disk_performance_STACKED_HDD_v2.csv"
+

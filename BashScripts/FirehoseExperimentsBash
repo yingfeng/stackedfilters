@@ -1,0 +1,14 @@
+#!/bin/bash
+
+#./FirehoseDataGeneratorDiskVersion_2 --bits=8 --bits_max=14 --bits_step=2 --use_hdd=0 --num_layers=1 --path="Data/firehose_disk_performance_TRADITIONAL_SSD_v2.csv"
+
+#./FirehoseDataGeneratorDiskVersion_2 --bits=8 --bits_max=14 --bits_step=2 --use_hdd=0 --num_layers=3 --path="Data/firehose_disk_performance_STACKED_SSD_v2.csv"
+
+./FirehoseDataGeneratorDiskVersion_2 --bits=8 --bits_max=14 --bits_step=2 --use_hdd=1 --num_layers=1 --path="Data/firehose_disk_performance_TRADITIONAL_HDD_v4.csv"
+
+./FirehoseDataGeneratorDiskVersion_2 --bits=8 --bits_max=14 --bits_step=2 --use_hdd=1 --num_layers=3 --path="Data/firehose_disk_performance_STACKED_HDD_v4.csv"
+
+
+#./FirehoseDataGeneratorDiskVersion_2 --bits=4 --bits_max=14 --bits_step=.5 --use_hdd=0 --num_layers=0 --path="Data/firehose_fpr_vs_bits_STACKED.csv"
+
+#./FirehoseDataGeneratorDiskVersion_2 --bits=4 --bits_max=14 --bits_step=.5 --use_hdd=0 --num_layers=1 --path="Data/firehose_fpr_vs_bits_TRADITIONAL.csv"

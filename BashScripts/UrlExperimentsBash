@@ -1,0 +1,12 @@
+#!/bin/bash
+
+#./URLBlacklisting --bits=8 --bits_max=14 --bits_step=.5 --num_layers=0 --equal_fprs=1 --path="Data/url_blacklisting_STACKED.csv"
+
+#./URLBlacklisting --bits=8 --bits_max=14 --bits_step=.5 --num_layers=1 --path="Data/url_blacklisting_TRADITIONAL.csv"
+
+#./URLBlacklisting --bits=8 --bits_max=14 --bits_step=.5 --max_known_negatives=2500000 --num_layers=0 --equal_fprs=1 --path="Data/url_blacklisting_STACKED_QUARTER_DATA.csv"
+
+./URLBlacklisting --bits=4 --bits_max=14 --bits_step=1 --max_known_negatives=5000000 --num_layers=0 --equal_fprs=1 --path="Data/url_blacklisting_STACKED_HALF_DATA_2.csv"
+
+#./URLBlacklisting --bits=8 --bits_max=14 --bits_step=.5 --max_known_negatives=10000000 --num_layers=0 --equal_fprs=1 --path="Data/url_blacklisting_STACKED_FULL_DATA.csv"
+

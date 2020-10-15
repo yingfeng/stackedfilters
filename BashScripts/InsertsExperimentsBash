@@ -1,0 +1,10 @@
+#!/bin/bash
+
+#./InsertsDataGenerator --bits=10 --num_layers=0  --path="Data/inserts_STACKED.csv"
+
+#./InsertsDataGenerator --bits=10 --num_layers=1 --path="Data/inserts_TRADITIONAL.csv"
+
+./InsertsDataGenerator --bits=10 --num_layers=0  --num_reps=50 --zipf=1.02 --path="Data/inserts_STACKED_eta_1.csv"
+
+./InsertsDataGenerator --bits=10 --num_layers=1 --num_reps=50 --zipf=1.02 --path="Data/inserts_TRADITIONAL_eta_1.csv"
+
