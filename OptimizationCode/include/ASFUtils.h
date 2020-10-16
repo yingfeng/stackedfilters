@@ -4,9 +4,10 @@
 #include <string>
 #include <cmath>
 #include <random>
-#include <algorithm> 
+#include <algorithm>
+#include <chrono>
  
-double getFval(std::vector<double>& psiVals, unsigned int i) {
+inline double getFval(const std::vector<double>& psiVals, unsigned int i) {
   if (i == 0) {
     return psiVals[0];
   } else {
@@ -16,7 +17,7 @@ double getFval(std::vector<double>& psiVals, unsigned int i) {
   }
 }
 
-std::pair<double,double> sampledCalculateEPsiENf(std::vector<double>& psiVals, 
+inline std::pair<double,double> sampledCalculateEPsiENf(const std::vector<double>& psiVals,
   unsigned int numQueriesToObserve, double unseenValueQueryProportion, unsigned int numSamples) {
   // amount to overcount sampled values
   double inverseProportionSampled = (1.0 * psiVals.size()) / numSamples;
@@ -38,7 +39,7 @@ std::pair<double,double> sampledCalculateEPsiENf(std::vector<double>& psiVals,
   return std::make_pair(expectedPsi, expectedNf);
 }
 
-double calculateExpectedPsi(std::vector<double> &power_f_values, std::vector<double>& psiVals) {
+inline double calculateExpectedPsi(const std::vector<double> &power_f_values, const std::vector<double>& psiVals) {
 	double fullPsi = psiVals[psiVals.size() - 1];
   assert(psiVals.size() == power_f_values.size());
 	for (unsigned int i = 0; i < psiVals.size(); i++) {
@@ -47,7 +48,7 @@ double calculateExpectedPsi(std::vector<double> &power_f_values, std::vector<dou
 	return fullPsi;
 }
 
-double calculateExpectedNf(std::vector<double> &power_f_values, unsigned int numQueriesToObserve, double unseenValueQueryProportion) {
+inline double calculateExpectedNf(const std::vector<double> &power_f_values, unsigned int numQueriesToObserve, double unseenValueQueryProportion) {
 	double unseenExpected = unseenValueQueryProportion * numQueriesToObserve;
   double returnResult = unseenExpected + power_f_values.size();
   for (unsigned int i = 0; i < power_f_values.size(); i++) {
@@ -56,7 +57,7 @@ double calculateExpectedNf(std::vector<double> &power_f_values, unsigned int num
   return returnResult;
 }
 
-std::pair<double, double> calculateEPsiENf(std::vector<double> &power_f_values, std::vector<double>& psiVals,
+inline std::pair<double, double> calculateEPsiENf(const std::vector<double> &power_f_values, const std::vector<double>& psiVals,
   unsigned int numQueriesToObserve, double unseenValueQueryProportion) {
   double expectedPsi = calculateExpectedPsi(power_f_values, psiVals);
   double expectedNumNegs = calculateExpectedNf(power_f_values, numQueriesToObserve, unseenValueQueryProportion);

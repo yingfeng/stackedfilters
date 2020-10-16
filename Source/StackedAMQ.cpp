@@ -24,27 +24,30 @@ template<template<typename> class BaseAMQ, typename element_type>
 StackedAMQ<BaseAMQ, element_type>::StackedAMQ(const size_t total_size,
                                               const std::vector<element_type> &positives,
                                               const std::vector<element_type> &negatives,
-                                              const std::vector<double> &pmf) {
-    static constexpr double kEpsilonError = .0005;
+                                              const std::vector<double> &cdf) {
+    static constexpr double kEpsilonError = .000001;
+    static constexpr double kLoadFactor = .95;
     std::vector<double> layer_fprs;
-    std::vector<int> integral_parameters;
+    std::vector<unsigned int> integral_parameters;
+    uint64_t num_chosen_negatives = 0;
     if(std::is_same<BaseAMQ<element_type>, BloomFilter<element_type>>::value){
-        std::vector<double> bits_per_element = optimizeStackedFilterBloom(total_size, positives.size(), kEpsilonError, pmf);
-        for(auto bits : bits_per_element){
-            int num_hashes = round(bits*log(2.));
-            double fpr = exp(-bits*log(2.)*log(2.));
+        std::tie(num_chosen_negatives, layer_fprs) = optimizeStackedFilterBloom(static_cast<double>(total_size)/positives.size(), positives.size(), kEpsilonError, cdf);
+        for(auto layer_fpr : layer_fprs){
+            int num_hashes = round(-log2(layer_fpr));
             integral_parameters.push_back(num_hashes);
-            layer_fprs.push_back(fpr);
         }
     } else{
-        std::vector<int> fingerprint_bits = optimizeDiscreteStackedFilter(total_size, positives.size(), kEpsilonError, pmf);
+        std::vector<int> fingerprint_bits;
+        std::tie(num_chosen_negatives, fingerprint_bits) = optimizeDiscreteStackedFilter(static_cast<double>(total_size)/positives.size(), positives.size(), kEpsilonError, cdf, kLoadFactor);
         for(auto bits : fingerprint_bits){
             double fpr =  powf(2., -bits);
             integral_parameters.push_back(bits);
             layer_fprs.push_back(fpr);
         }
     }
-    InitStackedAMQ(layer_fprs, integral_parameters, positives, negatives);
+    num_chosen_negatives = std::min(negatives.size(), num_chosen_negatives);
+    std::vector<element_type> chosen_negatives(negatives.begin(), negatives.begin() + num_chosen_negatives);
+    InitStackedAMQ(layer_fprs, integral_parameters, positives, chosen_negatives);
 }
 
 // Allows the caller to calculate the proper layer fprs.

@@ -36,7 +36,7 @@ public:
     StackedAMQ(const size_t total_size,
                const std::vector<element_type> &positives,
                const std::vector<element_type> &negatives,
-               const std::vector<double> &pmf);
+               const std::vector<double> &cdf);
 
     StackedAMQ(const std::vector<double> &layer_fprs,
                const std::vector<element_type> &positives,

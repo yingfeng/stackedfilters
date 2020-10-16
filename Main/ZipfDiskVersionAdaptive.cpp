@@ -19,7 +19,7 @@
 #include "../Headers/ZipfDistribution.h"
 
 #define POSITIVE_ELEMENTS 1000000
-#define ZIPF_PARAMETER 1
+#define ZIPF_PARAMETER .75
 
 std::vector<IntElement> generate_ints(uint64 num_elements) {
     std::uniform_int_distribution<long> distribution(0, 0xFFFFFFFFFFFFFFF);
@@ -29,6 +29,17 @@ std::vector<IntElement> generate_ints(uint64 num_elements) {
     }
     std::shuffle(int_vec.begin(), int_vec.end(), std::minstd_rand());
     return int_vec;
+}
+
+std::vector<double> get_cdf(const double zipf_parameter, const uint64_t negative_universe_size) {
+    std::vector<double> cdf(negative_universe_size);
+    double summation = 0;
+    for (uint64_t idx = 1; idx < negative_universe_size + 1; idx++) {
+        summation += 1 / pow(idx, zipf_parameter);
+        cdf[idx] = summation;
+    }
+    for (auto &p : cdf) p /= summation;
+    return cdf;
 }
 
 std::vector<double> get_pmf(const double zipf_parameter, const uint64_t negative_universe_size) {
@@ -41,7 +52,6 @@ std::vector<double> get_pmf(const double zipf_parameter, const uint64_t negative
     for (auto &p : pmf) p /= summation;
     return pmf;
 }
-
 
 uint64_t ReadDisk(FILE *fileptr, uint64_t file_pos) {
     uint64_t temp_int;
@@ -74,16 +84,14 @@ IntElement GetQuery(std::discrete_distribution<uint64_t> &dist, std::minstd_rand
     return negatives[dist(gen)];
 }
 
-#pragma clang diagnostic push
-#pragma ide diagnostic ignored "cert-msc30-c"
-
 void GenerateDataForOneRun(std::ofstream &file_stream, const uint64 negative_universe_size,
                            const double bits_per_positive_element,
                            const bool use_hdd,
                            const uint32 num_reps, uint64 max_sample_size, uint64 total_queries,
                            const std::vector<IntElement> &positives,
                            const std::vector<IntElement> &negatives, size_t sample_estimate_size,
-                           const std::vector<double> &pmf) {
+                           const std::vector<double> &pmf,
+                           const std::vector<double> &cdf) {
 
     // Setup Tracking Variables
     size_t number_of_chosen_negatives = 0;
@@ -129,8 +137,7 @@ void GenerateDataForOneRun(std::ofstream &file_stream, const uint64 negative_uni
         // Cold Construction Adaptive: build the Stacked Filter with the positives and sample cdf estimates.
         auto cold_construction_adaptive_start = std::chrono::system_clock::now();
         sum_int += simulate_reading_positives(file_name, num_positive_elements, rand());
-        AdaptiveStackedBF<IntElement> adaptive_filter(positives, total_size, total_queries, pmf,
-                                                      sample_estimate_size);
+        AdaptiveStackedBF<IntElement> adaptive_filter(positives, total_size, total_queries, cdf);
         auto cold_construction_adaptive_end = std::chrono::system_clock::now();
         cold_construction_adaptive += std::chrono::duration_cast<std::chrono::microseconds>(
                 cold_construction_adaptive_end - cold_construction_adaptive_start).count() / 1000000.0;
@@ -395,6 +402,7 @@ int main(int arg_num, char **args) {
         std::vector<IntElement> positives(ints.begin(), ints.begin() + POSITIVE_ELEMENTS);
         std::vector<IntElement> negatives(ints.begin() + POSITIVE_ELEMENTS, ints.end());
         const std::vector<double> pmf = get_pmf(ZIPF_PARAMETER, neg_universe_size);
+        const std::vector<double> cdf = get_cdf(ZIPF_PARAMETER, neg_universe_size);
         for (uint64 max_sample_size = max_sample_size_begin;
              max_sample_size <= max_sample_size_max; max_sample_size *= max_sample_size_ratio) {
             if (max_sample_size >= total_queries) max_sample_size = total_queries;
@@ -402,7 +410,7 @@ int main(int arg_num, char **args) {
                  bits_per_positive_element <= bits_max; bits_per_positive_element += bits_step) {
                 GenerateDataForOneRun(file_stream, neg_universe_size, bits_per_positive_element, use_hdd, num_reps,
                                       max_sample_size, total_queries, positives, negatives, sample_estimate_size,
-                                      pmf);
+                                      pmf, cdf);
                 file_stream.flush();
             }
         }

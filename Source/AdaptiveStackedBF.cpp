@@ -5,16 +5,14 @@
 template<typename element_type>
 AdaptiveStackedBF<element_type>::AdaptiveStackedBF(
         const std::vector<element_type> &positives,
-        const size_t total_size, const size_t total_queries, const std::vector<double> &pmf,
-        const size_t sample_estimate_size) {
-    sample_estimate_size_ = sample_estimate_size;
+        const size_t total_size, const size_t total_queries, const std::vector<double> &cdf) {
     num_positive_ = positives.size();
     total_size_ = total_size;
     total_queries_ = total_queries;
     queries_left_ = total_queries;
     eng_ = std::mt19937_64(rd_());
 
-    CalculateLayerFPRsAndFPCapacity(pmf);
+    CalculateLayerFPRsAndFPCapacity(cdf);
     InitAdaptiveStackedBF(positives);
 }
 
@@ -126,7 +124,7 @@ void AdaptiveStackedBF<element_type>::BuildThirdLayer(const std::vector<element_
 
 template<typename element_type>
 void AdaptiveStackedBF<element_type>::RebuildFilter(const std::vector<element_type> &positives,
-                                                    const std::vector<double> &pmf) {
+                                                    const std::vector<double> &cdf) {
     // Clear the second and third filters
     fully_built_ = false;
     threshold_fpr_ = -1;
@@ -134,14 +132,14 @@ void AdaptiveStackedBF<element_type>::RebuildFilter(const std::vector<element_ty
     layer_array_[1].filter_.resize(0);
     layer_array_.resize(2);
     // If a full rebuild is not requested, the second layer is simply reserved again.
-    if (positives.empty() || pmf.empty()) {
+    if (positives.empty() || cdf.empty()) {
         uint64_t second_layer_size = BloomFilter<IntElement>::SizeFunction(layer_fprs_[1], false_positives_capacity_);
         layer_array_[1].filter_.resize(second_layer_size, false);
         current_status_ = OPERATIONAL;
         return;
     }
     // For a full rebuild, the optimization is re-run, and the first layer is rebuilt.
-    CalculateLayerFPRsAndFPCapacity(pmf);
+    CalculateLayerFPRsAndFPCapacity(cdf);
     InitAdaptiveStackedBF(positives);
     current_status_ = OPERATIONAL;
 }
@@ -149,175 +147,30 @@ void AdaptiveStackedBF<element_type>::RebuildFilter(const std::vector<element_ty
 template<typename element_type>
 void AdaptiveStackedBF<element_type>::DeleteElement(element_type element) {}
 
-
-/* Optimization Methods */
-
-static double rank_to_size(const size_t *collection_size, const double rank, const size_t sample_estimate_size) {
-    long index = (size_t) (rank * sample_estimate_size);
-    if (index >= sample_estimate_size) {
-        return 1;
-    }
-    if (index < 0) {
-        return 0;
-    }
-    return collection_size[index];
-}
-
-struct SizeParameters {
-    size_t *collection_size;
-    size_t sample_estimate_size;
-    size_t total_size;
-    size_t num_positive;
-    uint32 num_layers;
-};
-
-static double SizeFunctionVaried(unsigned num_variables, const double *rank_and_layer_fprs,
-                                 double *grad, void *size_params_ptr) {
-    auto *params = (SizeParameters *) size_params_ptr;
-    size_t total_size = params->total_size * .995;
-    size_t num_positive = params->num_positive;
-    size_t sample_estimate_size = params->sample_estimate_size;
-    size_t num_negative = rank_to_size(params->collection_size, rank_and_layer_fprs[0], sample_estimate_size);
-    const double *layer_fprs = rank_and_layer_fprs + 1;
-    double size = 0;
-    size += BloomFilter<IntElement>::SizeFunction(layer_fprs[0], num_positive);
-    size += BloomFilter<IntElement>::SizeFunction(layer_fprs[1], layer_fprs[0] * num_negative);
-    size += BloomFilter<IntElement>::SizeFunction(layer_fprs[2], layer_fprs[1] * num_positive);
-    return size - total_size;
-}
-
-static double rank_to_psi(const double *collection_psi, const double rank, const size_t sample_estimate_size) {
-    size_t index = (size_t) (rank * sample_estimate_size);
-    if (index >= sample_estimate_size) {
-        return 1;
-    }
-    if (index < 0) {
-        return 0;
-    }
-    return collection_psi[index];
-}
-
-
-struct FprParameters {
-    size_t sample_estimate_size;
-    double penalty_coef;
-    double *collection_psi;
-    uint32 num_layers;
-};
-
-static double FprFunctionVaried(unsigned num_variables, const double *rank_and_layer_fprs,
-                                double *grad, void *fpr_params_ptr) {
-    auto *params = (FprParameters *) fpr_params_ptr;
-    const double penalty_coef = params->penalty_coef;
-    uint32 num_layers = params->num_layers;
-    size_t sample_estimate_size = params->sample_estimate_size;
-    double cold_query_proportion = rank_and_layer_fprs[0];
-    double psi = rank_to_psi(params->collection_psi, cold_query_proportion, sample_estimate_size);
-    const double *layer_fprs = rank_and_layer_fprs + 1;
-    double known_fpr = layer_fprs[0] * layer_fprs[2];
-    double unknown_fpr_side = layer_fprs[0] * (1 - layer_fprs[1]);
-    double unknown_fpr_end = layer_fprs[0] * layer_fprs[1] * layer_fprs[2];
-    // Penalty Function For Number of Hashes
-    int num_hashes = 0;
-    for (uint32 i = 0; i < num_layers; i++) num_hashes += std::max((int) (round(-log(layer_fprs[i]) / log(2))), 1);
-    double cold_fpr = layer_fprs[0];
-    double warm_fpr = psi * known_fpr +
-                      (1 - psi) * (unknown_fpr_side + unknown_fpr_end);
-    double total_fpr = cold_query_proportion * cold_fpr + (1 - cold_query_proportion) * warm_fpr;
-    return total_fpr *
-           (1 + num_hashes * penalty_coef);
-}
-
-std::pair<double *, size_t *> get_collection_estimate(const std::vector<double> &pmf, const size_t sample_estimate_size,
-                                                      const size_t max_sample_size) {
-    auto *collection_psi = new double[sample_estimate_size];
-    auto *collection_size = new size_t[sample_estimate_size];
-    double collection_size_step = (double) max_sample_size / sample_estimate_size;
-
-    constexpr uint64_t kPMFSampleSize = 100000;
-    std::vector<double> pmf_sample(kPMFSampleSize);
-    std::default_random_engine generator;
-    std::uniform_int_distribution<uint64_t> distribution(0, pmf.size());
-    for (uint64_t sample_idx = 0; sample_idx < kPMFSampleSize; sample_idx++)
-        pmf_sample.push_back(pmf[distribution(generator)]);
-
-    for (size_t collection_estimate_index = 1;
-         collection_estimate_index < sample_estimate_size; collection_estimate_index++) {
-        collection_psi[collection_estimate_index] = 0;
-        double temp_size = 0;
-        for (const auto &p : pmf_sample) {
-            collection_psi[collection_estimate_index] +=
-                    p * pow(1 - p, collection_estimate_index * collection_size_step);
-            temp_size +=
-                    1 - pow(1 - p, collection_estimate_index * collection_size_step);
-        }
-        collection_psi[collection_estimate_index] = 1 - collection_psi[collection_estimate_index] * pmf.size() /
-                                                        static_cast<double>(kPMFSampleSize);
-        collection_size[collection_estimate_index] = temp_size * pmf.size() / static_cast<double>(kPMFSampleSize);
-    }
-    return {collection_psi, collection_size};
-}
-
-
 // Use NLOPT to calculate layer fprs and the number of unique false positives to be included.
 template<typename element_type>
-void AdaptiveStackedBF<element_type>::CalculateLayerFPRsAndFPCapacity(const std::vector<double> &pmf) {
+void AdaptiveStackedBF<element_type>::CalculateLayerFPRsAndFPCapacity(const std::vector<double> &cdf) {
     double *collection_psi;
     size_t *collection_size;
-    std::tie(collection_psi, collection_size) = get_collection_estimate(pmf, sample_estimate_size_,
-                                                                        queries_left_);
-    constexpr uint32 num_variables = num_layers_ + 1;
-    std::vector<double> rank_and_layer_fprs(num_variables, 0.0001);
-
-    FprParameters fpr_params{};
-    fpr_params.sample_estimate_size = sample_estimate_size_;
-    fpr_params.penalty_coef = penalty_coef_;
-    fpr_params.collection_psi = collection_psi;
-    fpr_params.num_layers = num_layers_;
-    SizeParameters size_params{};
-    size_params.collection_size = collection_size;
-    size_params.total_size = total_size_;
-    size_params.num_positive = num_positive_;
-    size_params.sample_estimate_size = sample_estimate_size_;
-    size_params.num_layers = num_layers_;
-
-    // Calculate the FPR of an equal-fpr stacked filter.
-    auto lower_bounds = (double *) calloc(num_variables, sizeof(double));
-    for (uint32 i = 0; i < num_variables; i++) lower_bounds[i] = 0.00000000000000000001;
-    auto upper_bounds = (double *) calloc((num_variables), sizeof(double));
-    for (uint32 i = 0; i < num_variables; i++) upper_bounds[i] = 1;
-    double max_rank = 1;
-    upper_bounds[0] = max_rank;
-    nlopt_opt local_fpr_opt = nlopt_create(NLOPT_GN_ISRES, num_variables);
-    nlopt_set_lower_bounds(local_fpr_opt, lower_bounds);
-    nlopt_set_upper_bounds(local_fpr_opt, upper_bounds);
-    nlopt_set_maxtime(local_fpr_opt, .25);
-    nlopt_add_inequality_constraint(
-            local_fpr_opt, SizeFunctionVaried,
-            &size_params, total_size_ * .0005);
-    nlopt_set_min_objective(local_fpr_opt, FprFunctionVaried,
-                            &fpr_params);
-    double variable_fpr_fpr = 1;
-    nlopt_result local_ret_status =
-            nlopt_optimize(local_fpr_opt, rank_and_layer_fprs.data(), &variable_fpr_fpr);
-    if (local_ret_status == -4)
-        printf("ERROR!!!  Roundoff Errors Reached in Local Optimization\n");
-    else if (local_ret_status < 0)
-        printf("ERROR!!! General Error in Local Optimization: %d\n", local_ret_status);
-    free(upper_bounds);
-    free(lower_bounds);
-
-    layer_fprs_ = std::vector<double>(rank_and_layer_fprs.begin() + 1, rank_and_layer_fprs.end());
-
+    ASFContinuousOptimizationObject opt_result = optimizeASFContinuous(total_size_ / static_cast<double>(num_positive_),
+                                                                       num_positive_, total_queries_,
+                                                                       cdf, true);
+    integral_parameters_.clear();
+    layer_fprs_.clear();
+    for(auto bits : opt_result.bitsPerElementLayers){
+        int num_hashes = round(bits*log(2.));
+        integral_parameters_.push_back(num_hashes);
+        double fpr = pow(2., -num_hashes);
+        layer_fprs_.push_back(fpr);
+    }
     // Set the threshold FPR to be halfway between the cold and warm FPR.
-    const double psi = rank_to_psi(collection_psi, rank_and_layer_fprs[0], sample_estimate_size_);
     target_fpr_ = layer_fprs_[0] *
-                  ((1 - psi) * ((1 - layer_fprs_[1]) + layer_fprs_[1] * layer_fprs_[2]) + psi * layer_fprs_[2]);
+                  ((1 - opt_result.psi) * ((1 - layer_fprs_[1]) + layer_fprs_[1] * layer_fprs_[2]) + opt_result.psi * layer_fprs_[2]);
     const double single_layer_fpr = exp(-static_cast<double>(total_size_) / num_positive_ * log(2) * log(2));
     threshold_fpr_ = -1;
-
     // Adjust for the fact that only elements which flip at least one bit will count towards the capacity
-    size_t negatives_size = rank_to_size(collection_size, rank_and_layer_fprs[0], sample_estimate_size_);
+    size_t negatives_size = opt_result.NoverP * num_positive_;
+    std::cout << opt_result.NoverP << std::endl;
     double capacity_adjustment = (1 - layer_fprs_[1]);
     false_positives_capacity_ = negatives_size * layer_fprs_[0] * capacity_adjustment;
     free(collection_psi);

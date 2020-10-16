@@ -2,6 +2,9 @@
 
 #include <vector>
 #include <random>
+#include <iterator>
+#include <experimental/algorithm>
+
 #include "BloomFilter.h"
 #include "CQFilter.h"
 #include "CuckooFilter.h"
@@ -9,9 +12,7 @@
 #include "InterfaceAMQ.h"
 #include "InterfaceElement.h"
 #include "nlopt.h"
-#include <iterator>
-#include <experimental/algorithm>
-
+#include "ASFContinuousOptimizationRoutines.h"
 
 enum FilterStatus {
     OPERATIONAL = 0,
@@ -52,7 +53,7 @@ public:
 
     AdaptiveStackedBF(
             const std::vector<element_type> &positives,
-            size_t total_size, size_t total_queries, const std::vector<double> &pmf, size_t sample_estimate_size);
+            size_t total_size, size_t total_queries, const std::vector<double> &pmf);
 
     void InitAdaptiveStackedBF(const std::vector<element_type> &positives);
 

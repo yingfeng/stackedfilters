@@ -3,12 +3,13 @@
 #include <iostream>
 #include <vector>
 
-#include "utils.h"
-#include "ASFDiscreteOptimizationObject.h"
-#include "ASFContinuousOptimizationObject.h"
-#include "ASFUtils.h"
+#include "ASFDiscreteOptimizationRoutines.h"
+#include "ASFContinuousOptimizationRoutines.h"
+#include "BloomOptimizationRoutines.h"
+#include "DiscreteOptimizationRoutines.h"
 
-std::vector<double> optimizeStackedFilterBloom(double maxSize, unsigned int numPositiveElements, double epsilonSlack, std::vector<double>& psiPerNegativeElement);
+/*
+std::pair<uint64_t, std::vector<double>> optimizeStackedFilterBloom(double maxSize, unsigned int numPositiveElements, double epsilonSlack, const std::vector<double>& psiPerNegativeElement);
 
 ASFDiscreteOptimizationObject optimizeASFDiscrete(double maxSize, unsigned int numPositiveElements, unsigned int numQueriesAlive, 
   std::vector<double>& psiVals, bool sample);
@@ -16,4 +17,5 @@ ASFDiscreteOptimizationObject optimizeASFDiscrete(double maxSize, unsigned int n
 ASFContinuousOptimizationObject optimizeASFContinuous(double maxSize, unsigned int numPositiveElements, unsigned int numQueriesAlive, 
   std::vector<double>& psiVals, bool sample);
 
-std::vector<int> optimizeDiscreteStackedFilter(double maxSize, unsigned int numPositiveElements, double epsilonSlack, std::vector<double>& psiPerNegativeElement, double load_factor);
+std::pair<uint64_t, std::vector<int>>  optimizeDiscreteStackedFilter(double maxSize, unsigned int numPositiveElements, double epsilonSlack, const std::vector<double>& psiPerNegativeElement, double load_factor);
+ */

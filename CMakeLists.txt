@@ -9,7 +9,7 @@ include_directories(
         ${PROJECT_SOURCE_DIR}/Headers
         ${PROJECT_SOURCE_DIR}/cqf-master/include
         ${PROJECT_SOURCE_DIR}/cqf-master/src
-        ${PROJECT_SOURCE_DIR}/stacked-filters-optimization-clean/include
+        ${PROJECT_SOURCE_DIR}/OptimizationCode/include
 )
 
 #However, the file(GLOB...) allows for wildcard additions:
