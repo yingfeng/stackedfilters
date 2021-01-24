@@ -14,9 +14,9 @@
 #include <tclap/CmdLine.h>
 #include <experimental/algorithm>
 #include <iterator>
-#include "../Headers/BloomFilter.h"
-#include "../Headers/AdaptiveStackedBF.h"
-#include "../Headers/ZipfDistribution.h"
+#include "BloomFilterLayer.h"
+#include "AdaptiveStackedBF.h"
+#include "ZipfDistribution.h"
 
 #define POSITIVE_ELEMENTS 1000000
 #define ZIPF_PARAMETER_1 1.25
@@ -141,8 +141,6 @@ void GenerateDataForOneRun(std::ofstream &file_stream, const uint64 negative_uni
         std::vector<double> traditional_timestamps_rep;
         std::vector<uint64_t> traditional_queries_completed_rep;
 
-
-
         // Build the query workload from three stages.
         uint64_t stage_length = total_queries / 3;
         std::vector<IntElement> queries(total_queries, 0);
@@ -153,12 +151,9 @@ void GenerateDataForOneRun(std::ofstream &file_stream, const uint64 negative_uni
         for (size_t query_idx = 2 * stage_length; query_idx < 3 * stage_length; query_idx++)
             queries[query_idx] = GetQuery(dist_3, gen, negatives);
 
-
-
         // Construct the adaptive filter then run it and collect timestamps throughout the workload.
         auto adaptive_start = std::chrono::system_clock::now();
-        AdaptiveStackedBF<IntElement> adaptive_filter(positives, total_size, total_queries, pmf_1,
-                                                      sample_estimate_size);
+        AdaptiveStackedBF<IntElement> adaptive_filter(positives, total_size, total_queries, pmf_1);
 
         for (uint64_t query_idx = 0; query_idx < total_queries; query_idx++) {
             if ((query_idx % kQueriesPerTimestamp) == 0) {
@@ -188,7 +183,7 @@ void GenerateDataForOneRun(std::ofstream &file_stream, const uint64 negative_uni
         sum_int += simulate_reading_positives(file_name, num_positive_elements, rand());
         uint32_t traditional_num_hashes =
                 (double) total_size / static_cast<double>(positives.size()) * (double) logf64(2.);
-        BloomFilter<IntElement> traditional_filter(total_size, traditional_num_hashes, rand());
+        BloomFilterLayer<IntElement> traditional_filter(total_size, traditional_num_hashes, rand());
         for (const auto &element: positives) traditional_filter.InsertElement(element);
         MarkTimestamp(traditional_timestamps_rep, traditional_queries_completed_rep, traditional_start, 0);
         for (uint64_t query_idx = 0; query_idx < total_queries; query_idx++) {

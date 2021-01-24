@@ -14,12 +14,12 @@
 #include <tclap/CmdLine.h>
 #include <experimental/algorithm>
 #include <iterator>
-#include "../Headers/BloomFilter.h"
-#include "../Headers/AdaptiveStackedBF.h"
-#include "../Headers/ZipfDistribution.h"
+#include "BloomFilterLayer.h"
+#include "AdaptiveStackedBF.h"
+#include "ZipfDistribution.h"
 
 #define POSITIVE_ELEMENTS 1000000
-#define ZIPF_PARAMETER .75
+#define ZIPF_PARAMETER 1
 
 std::vector<IntElement> generate_ints(uint64 num_elements) {
     std::uniform_int_distribution<long> distribution(0, 0xFFFFFFFFFFFFFFF);
@@ -219,7 +219,7 @@ void GenerateDataForOneRun(std::ofstream &file_stream, const uint64 negative_uni
         sum_int += simulate_reading_positives(file_name, num_positive_elements, rand());
         uint32_t traditional_num_hashes =
                 (double) total_size / static_cast<double>(positives.size()) * (double) logf64(2.);
-        BloomFilter<IntElement> traditional_filter(total_size, traditional_num_hashes, rand());
+        BloomFilterLayer<IntElement> traditional_filter(total_size, traditional_num_hashes, rand());
         for (const auto &positive : positives) traditional_filter.InsertElement(positive);
         auto construction_traditional_end = std::chrono::system_clock::now();
         construction_traditional += std::chrono::duration_cast<std::chrono::microseconds>(

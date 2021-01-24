@@ -10,9 +10,8 @@
 #include <string>
 #include <chrono>
 #include <tclap/CmdLine.h>
-#include "../Headers/BloomFilter.h"
-#include "../Headers/StackedAMQ.h"
-#include "../Headers/ZipfDistribution.h"
+#include "StackedFilter.h"
+#include "ZipfDistribution.h"
 
 std::vector<IntElement> generate_ints(uint64 num_elements) {
     std::uniform_int_distribution<long> distribution(0, 0xFFFFFFFFFFFFFFF);
@@ -26,22 +25,20 @@ std::vector<IntElement> generate_ints(uint64 num_elements) {
 
 
 std::vector<double> zipf_cdf(uint64_t num_elements, double zipf_param){
-    std::vector<double> pmf;
+    std::vector<double> cdf;
     double sum = 0;
     for(uint64_t i = 1; i<=num_elements; i++){
         sum += 1./pow(i,zipf_param);
-        pmf.push_back(sum);
+        cdf.push_back(sum);
     }
-    for(auto& prob : pmf){
+    for(auto& prob : cdf){
         prob /= sum;
     }
-    return pmf;
+    return cdf;
 }
 
 void GenerateDataForOneRun(std::ofstream &file_stream, const double zipf_parameter, const uint64 negative_universe_size,
-                           const double bits_per_positive_element, const double fpr,
-                           const bool equal_fprs,
-                           uint32 num_layers, const uint32 num_reps, const uint64 max_known_negatives,
+                           const double bits_per_positive_element, const uint32 num_reps, const uint64 max_known_negatives,
                            const uint64 num_positives, const uint64 negative_sample_size) {
     double known_fpr = 0;
     double unknown_fpr = 0;
@@ -54,23 +51,20 @@ void GenerateDataForOneRun(std::ofstream &file_stream, const double zipf_paramet
     double negative_lookup_time = 0;
     uint64 number_of_chosen_negatives = 0;
     long double psi = 0;
-    const bool fixed_fpr = fpr > 0;
     std::vector<IntElement> ints = generate_ints(num_positives + negative_universe_size);
     std::vector<IntElement> positives(ints.begin(), ints.begin() + num_positives);
     uint64 num_positive_elements = positives.size();
     std::vector<IntElement> negatives(ints.begin() + num_positive_elements, ints.end());
     uint64 total_size = num_positive_elements * bits_per_positive_element;
-    printf("num_positive_elements =%ld, zipf_parameter =%f, negative_universe_size=%ld, bits = %f, equal_fprs=%d, num_layers=%d\n",
-           positives.size(), zipf_parameter, negative_universe_size, bits_per_positive_element, equal_fprs, num_layers);
+    printf("num_positive_elements =%ld, zipf_parameter =%f, negative_universe_size=%ld, bits = %f\n",
+           positives.size(), zipf_parameter, negative_universe_size, bits_per_positive_element);
 
     std::vector<double> cdf = zipf_cdf(negative_universe_size, zipf_parameter);
-    // for(auto prob : cdf) std::cout << prob << std::endl;
     for (uint32 reps = 0; reps < num_reps; reps++) {
-
         // Generate Test Data
         auto construction_start = std::chrono::system_clock::now();
         // Build the Stacked Filter with the test data and layer fprs.
-        StackedAMQ<CQFilter, IntElement> filter(total_size, positives, negatives, cdf);
+        StackedFilter<BloomFilterLayer, IntElement> filter(total_size, positives, negatives, cdf);
         auto construction_end = std::chrono::system_clock::now();
         const auto construction_rep_time = std::chrono::duration_cast<std::chrono::microseconds>(
                 construction_end - construction_start);
@@ -162,8 +156,7 @@ void GenerateDataForOneRun(std::ofstream &file_stream, const double zipf_paramet
                 negative_sample_size << "," << zipf_parameter << "," << negative_universe_size << ","
                                                                      << max_known_negatives << ","
                                                                      << number_of_chosen_negatives << "," << psi << ","
-                                                                     << bits_per_positive_element << "," << equal_fprs << ","
-                                                                     << num_layers << "," << used_bits << "," << total_fpr << ","
+                                                                     << bits_per_positive_element << "," << used_bits << "," << total_fpr << ","
                                                                      << known_fpr << "," << unknown_fpr << "," << construction_time << "," << positive_lookup_time
                                                                      << ","
                                                                      << negative_lookup_time << "," << checks_per_pos << ","
@@ -175,10 +168,9 @@ void GenerateDataForOneRun(std::ofstream &file_stream, const double zipf_paramet
 }
 
 void set_flags(TCLAP::CmdLine &cmdLine, double &zipf_begin, double &zipf_max, double &zipf_step, double &bits_begin,
-               double &bits_max, double &bits_step, double &fpr_begin,
-               double &fpr_min, double &fpr_ratio, uint64 &neg_universe_size,
+               double &bits_max, double &bits_step, uint64 &neg_universe_size,
                uint64 &neg_universe_size_max, double &neg_universe_size_ratio, uint64 &max_known_negatives,
-               uint64 &max_known_negatives_max, double &max_known_negatives_ratio, bool &equal_fprs, uint32 &num_layers,
+               uint64 &max_known_negatives_max, double &max_known_negatives_ratio,
                uint32 &num_reps, std::string &file_path, int arg_num, char **args) {
     TCLAP::ValueArg<double> zipf_arg("", "zipf",
                                      "The starting value for the zipf parameter, and the only value if zipf_max is not set.",
@@ -197,15 +189,6 @@ void set_flags(TCLAP::CmdLine &cmdLine, double &zipf_begin, double &zipf_max, do
     TCLAP::ValueArg<double> bits_step_arg("", "bits_step",
                                           "The step size over which [bits, bits_max) will be explored.",
                                           false, 1000, "Expects a float.");
-    TCLAP::ValueArg<double> fpr_begin_arg("", "fpr",
-                                          "The starting value for the fpr of the stacked filter, and the only value if fpr_max is not set.",
-                                          false, -1, "Expects a float.");
-    TCLAP::ValueArg<double> fpr_min_arg("", "fpr_min",
-                                        "The min value for the fpr of the Stacked Filter.",
-                                        false, .0000001, "Expects a float.");
-    TCLAP::ValueArg<double> fpr_ratio_arg("", "fpr_ratio",
-                                          "The step ratio over which [fpr, fpr_min) will be explored.",
-                                          false, .0000000001, "Expects a float.");
     TCLAP::ValueArg<uint64> neg_universe_size_arg("", "neg_universe_size",
                                                   "The starting value for the negative universe size, and the only value if neg_universe_size_max is not set.",
                                                   false, 100000000, "Expects a uint64.");
@@ -224,12 +207,6 @@ void set_flags(TCLAP::CmdLine &cmdLine, double &zipf_begin, double &zipf_max, do
     TCLAP::ValueArg<double> max_known_negatives_ratio_arg("", "max_known_negatives_ratio",
                                                           "The ratio between steps over which [max_known_negatives, max_known_negatives_max) will be explored.",
                                                           false, 100000000, "Expects a double.");
-    TCLAP::ValueArg<bool> equal_fprs_arg("", "equal_fprs",
-                                         "Whether all layer fprs should be made equal.",
-                                         false, false, "Expects a bool.");
-    TCLAP::ValueArg<uint32> num_layers_arg("", "num_layers",
-                                           "The starting value for the zipf parameter, and the only value if -zipf_end is not set.",
-                                           false, 0, "Expects a uint32.");
     TCLAP::ValueArg<uint32> num_reps_arg("", "num_reps",
                                          "The number of repetitions per set of parameters.",
                                          false, 25, "Expects a uint32.");
@@ -242,17 +219,12 @@ void set_flags(TCLAP::CmdLine &cmdLine, double &zipf_begin, double &zipf_max, do
     cmdLine.add(bits_begin_arg);
     cmdLine.add(bits_max_arg);
     cmdLine.add(bits_step_arg);
-    cmdLine.add(fpr_begin_arg);
-    cmdLine.add(fpr_min_arg);
-    cmdLine.add(fpr_ratio_arg);
     cmdLine.add(neg_universe_size_arg);
     cmdLine.add(neg_universe_size_max_arg);
     cmdLine.add(neg_universe_size_ratio_arg);
     cmdLine.add(max_known_negatives_arg);
     cmdLine.add(max_known_negatives_max_arg);
     cmdLine.add(max_known_negatives_ratio_arg);
-    cmdLine.add(equal_fprs_arg);
-    cmdLine.add(num_layers_arg);
     cmdLine.add(num_reps_arg);
     cmdLine.add(file_path_arg);
     cmdLine.parse(arg_num, args);
@@ -263,38 +235,32 @@ void set_flags(TCLAP::CmdLine &cmdLine, double &zipf_begin, double &zipf_max, do
     bits_begin = bits_begin_arg.getValue();
     bits_max = bits_max_arg.getValue();
     bits_step = bits_step_arg.getValue();
-    fpr_begin = fpr_begin_arg.getValue();
-    fpr_min = fpr_min_arg.getValue();
-    fpr_ratio = fpr_ratio_arg.getValue();
     neg_universe_size = neg_universe_size_arg.getValue();
     neg_universe_size_max = neg_universe_size_max_arg.getValue();
     neg_universe_size_ratio = neg_universe_size_ratio_arg.getValue();
     max_known_negatives = max_known_negatives_arg.getValue();
     max_known_negatives_max = max_known_negatives_max_arg.getValue();
     max_known_negatives_ratio = max_known_negatives_ratio_arg.getValue();
-    equal_fprs = equal_fprs_arg.getValue();
-    num_layers = num_layers_arg.getValue();
     num_reps = num_reps_arg.getValue();
     file_path = file_path_arg.getValue();
 }
 
 int main(int arg_num, char **args) {
     TCLAP::CmdLine cmd("", '=', "0.1");
-    double zipf_begin, zipf_max, zipf_step, bits_begin, bits_max, bits_step, fpr_begin, fpr_min, fpr_ratio, neg_universe_size_ratio, max_known_negatives_ratio, num_positives_ratio;
-    uint64 num_positives_begin, num_positives_max, neg_universe_size_begin, neg_universe_size_max, max_known_negatives_begin, max_known_negatives_max;
-    uint32 num_reps, num_layers;
+    double zipf_begin, zipf_max, zipf_step, bits_begin, bits_max, bits_step, neg_universe_size_ratio, max_known_negatives_ratio;
+    uint64 neg_universe_size_begin, neg_universe_size_max, max_known_negatives_begin, max_known_negatives_max;
+    uint32 num_reps;
     std::string file_path;
-    bool equal_fprs;
-    set_flags(cmd, zipf_begin, zipf_max, zipf_step, bits_begin, bits_max, bits_step, fpr_begin, fpr_min, fpr_ratio,
+    set_flags(cmd, zipf_begin, zipf_max, zipf_step, bits_begin, bits_max, bits_step,
               neg_universe_size_begin, neg_universe_size_max,
               neg_universe_size_ratio, max_known_negatives_begin, max_known_negatives_max, max_known_negatives_ratio,
-              equal_fprs, num_layers,
               num_reps, file_path, arg_num, args
     );
     std::ofstream file_stream;
     file_stream.open(file_path);
     file_stream
-            << "Number Of Positive Elements,Negative Sample Size,Zipf Parameter,Negative Universe Size,Number of Known Negatives Available,Number of Known Negatives Chosen,Psi,Bits Available,Equal Fprs,Num Layers,Used Bits,Total "
+            << "Number Of Positive Elements,Negative Sample Size,Zipf Parameter,Negative Universe Size,"
+               "Number of Known Negatives Available,Number of Known Negatives Chosen,Psi,Bits Available,Used Bits,Total "
                "FPR,Known FPR,Unknown FPR,Construction Time,Positive Lookup Time,Negative Lookup Time,Filter Checks For Positive,Filter Checks For "
                "Negative\n";
     const uint64 num_positives = 1000000;
@@ -305,32 +271,14 @@ int main(int arg_num, char **args) {
              neg_universe_size < neg_universe_size_max; neg_universe_size *= neg_universe_size_ratio) {
             for (uint64 max_known_negatives = max_known_negatives_begin;
                  max_known_negatives <= max_known_negatives_max; max_known_negatives *= max_known_negatives_ratio) {
-                if (fpr_begin < 0) {
                     for (double bits_per_positive_element = bits_begin;
                          bits_per_positive_element <= bits_max; bits_per_positive_element += bits_step) {
                         GenerateDataForOneRun(file_stream, zipf_parameter,
                                               neg_universe_size,
-                                              bits_per_positive_element,
-                                              fpr_begin,
-                                              equal_fprs,
-                                              num_layers, num_reps, max_known_negatives, num_positives,
+                                              bits_per_positive_element, num_reps, max_known_negatives, num_positives,
                                               negative_sample_size);
                         file_stream.flush();
                     }
-                } else {
-                    for (double fpr = fpr_begin;
-                         fpr >= fpr_min; fpr *= fpr_ratio) {
-                        GenerateDataForOneRun(file_stream, zipf_parameter,
-                                              neg_universe_size,
-                                              bits_begin,
-                                              fpr,
-                                              equal_fprs,
-                                              num_layers, num_reps, max_known_negatives, num_positives,
-                                              negative_sample_size);
-                        file_stream.flush();
-                    }
-
-                }
             }
         }
     }
