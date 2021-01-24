@@ -1,0 +1,1 @@
+/usr/bin/c++   -O3 -Wall -Wextra -g  -rdynamic CMakeFiles/ZipfGraphsDataGeneratorDiskVersion.dir/Main/ZipfGraphsDataGeneratorDiskVersion.cpp.o CMakeFiles/ZipfGraphsDataGeneratorDiskVersion.dir/include/QuotientFilter/gqf.cpp.o CMakeFiles/ZipfGraphsDataGeneratorDiskVersion.dir/include/QuotientFilter/partitioned_counter.cpp.o  -o ZipfGraphsDataGeneratorDiskVersion 
